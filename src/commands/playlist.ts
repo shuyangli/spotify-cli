@@ -46,14 +46,17 @@ export function registerPlaylistCommands(program: Command): void {
     .option("--public", "make the playlist public", false)
     .option("--collaborative", "make the playlist collaborative (requires private)", false)
     .action(async (opts: { name: string; description?: string; public: boolean; collaborative: boolean }) => {
-      const me = await spotifyRequest<{ id: string }>("/me");
+      // Per Feb 2026: create lives at POST /me/playlists. The legacy
+      // POST /users/{user_id}/playlists path now returns 403, paired with
+      // the deprecation of GET /users/{id}. /me/playlists also avoids the
+      // extra /me round-trip the old code path used.
       const body: Record<string, unknown> = {
         name: opts.name,
         public: opts.public,
         collaborative: opts.collaborative,
       };
       if (opts.description !== undefined) body["description"] = opts.description;
-      const created = await spotifyRequest<PlaylistRef>(`/users/${encodeURIComponent(me.id)}/playlists`, {
+      const created = await spotifyRequest<PlaylistRef>("/me/playlists", {
         method: "POST",
         body,
       });

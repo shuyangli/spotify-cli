@@ -127,9 +127,8 @@ test("playlist list calls /me/playlists with limit + offset and summarizes items
   assert.equal(parsed.items[0].track_count, 12);
 });
 
-test("playlist create POSTs to /users/{id}/playlists with name + flags", async () => {
+test("playlist create POSTs directly to /me/playlists (Feb 2026 path)", async () => {
   const { calls, restore } = installFetchMock([
-    { status: 200, body: { id: "alice" } },
     {
       status: 201,
       body: {
@@ -153,14 +152,41 @@ test("playlist create POSTs to /users/{id}/playlists with name + flags", async (
     restore();
   }
   const stdout = out.restore();
-  assert.equal(calls.length, 2);
-  assert.equal(new URL(calls[1]!.url).pathname, "/v1/users/alice/playlists");
-  assert.equal(calls[1]!.init.method, "POST");
-  const body = JSON.parse(calls[1]!.init.body as string);
+  // Single call — no /me preflight needed.
+  assert.equal(calls.length, 1);
+  assert.equal(new URL(calls[0]!.url).pathname, "/v1/me/playlists");
+  assert.equal(calls[0]!.init.method, "POST");
+  const body = JSON.parse(calls[0]!.init.body as string);
   assert.equal(body.name, "Made by claude");
   assert.equal(body.description, "test playlist");
   assert.equal(body.public, false);
   assert.equal(JSON.parse(stdout).id, "newp");
+});
+
+test("playlist create does NOT hit the deprecated /users/{id}/playlists path", async () => {
+  const { calls, restore } = installFetchMock([
+    {
+      status: 201,
+      body: {
+        id: "p",
+        name: "n",
+        owner: { id: "u", display_name: null },
+        public: false,
+        collaborative: false,
+        items: { total: 0 },
+      },
+    },
+  ]);
+  try {
+    await freshProgram().parseAsync([
+      "node", "spotify-cli", "playlist", "create", "--name", "n",
+    ]);
+  } finally {
+    restore();
+  }
+  for (const call of calls) {
+    assert.equal(/\/v1\/users\/[^/]+\/playlists/.test(call.url), false);
+  }
 });
 
 test("playlist add validates URIs and POSTs to /playlists/{id}/items (Feb 2026 path)", async () => {
