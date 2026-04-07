@@ -125,7 +125,7 @@ calls (made serially):
 ## Installation
 
 ```sh
-npm install -g spotify-cli   # or `npm install -g github:shuyangli/spotify-cli`
+npm install -g @shuyangli/spotify-cli
 ```
 
 Then set `SPOTIFY_CLIENT_ID` (registered at

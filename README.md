@@ -10,13 +10,13 @@ stderr in a `{"error": {...}}` envelope with a non-zero exit code.
 ## Install
 
 ```sh
-npm install -g spotify-cli
+npm install -g @shuyangli/spotify-cli
 ```
 
 Or from source:
 
 ```sh
-git clone <this-repo>
+git clone https://github.com/shuyangli/spotify-cli.git
 cd spotify-cli && npm install && npm run build && npm link
 ```
 
