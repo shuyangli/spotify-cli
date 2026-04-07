@@ -1,7 +1,7 @@
 ---
 name: spotify
 description: Build Spotify playlists and control playback on Spotify Connect devices via the spotify-cli command. Use whenever the user asks to create/edit playlists, search the catalog, list devices, or play/pause/skip music.
-version: 0.1.0
+version: 0.0.1
 author: shuyangli
 license: MIT
 platforms: [macos, linux]

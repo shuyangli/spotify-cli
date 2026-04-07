@@ -1,22 +1,48 @@
 {
-  "name": "spotify-cli",
-  "version": "0.1.0",
-  "description": "CLI for building Spotify playlists and controlling Spotify Connect playback, designed for Hermes agents",
+  "name": "@shuyangli/spotify-cli",
+  "version": "0.0.1",
+  "description": "CLI for building Spotify playlists and controlling Spotify Connect playback. Designed to be driven by an LLM agent.",
+  "keywords": [
+    "spotify",
+    "spotify-connect",
+    "cli",
+    "playlist",
+    "agent",
+    "hermes",
+    "llm"
+  ],
+  "homepage": "https://github.com/shuyangli/spotify-cli#readme",
+  "bugs": {
+    "url": "https://github.com/shuyangli/spotify-cli/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shuyangli/spotify-cli.git"
+  },
+  "author": "shuyangli",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "spotify-cli": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "skill",
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
+    "build:prod": "rm -rf dist && tsc -p tsconfig.prod.json",
     "dev": "tsx src/index.ts",
     "test": "node --import tsx --import ./test/setup.ts --test test/*.test.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm test && npm run build:prod"
   },
   "dependencies": {
     "commander": "^12.1.0"
@@ -25,6 +51,5 @@
     "@types/node": "^20.14.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
-  },
-  "license": "MIT"
+  }
 }

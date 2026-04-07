@@ -12,7 +12,7 @@ async function main(): Promise<void> {
   program
     .name("spotify-cli")
     .description("Build Spotify playlists and control Spotify Connect playback")
-    .version("0.1.0")
+    .version("0.0.1")
     .option("--debug", "Enable verbose stderr logging")
     .hook("preAction", (thisCommand) => {
       const opts = thisCommand.optsWithGlobals();
