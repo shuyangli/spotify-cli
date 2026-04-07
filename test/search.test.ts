@@ -68,7 +68,9 @@ test.beforeEach(async () => {
 });
 
 test("search default limit is 5 (Feb 2026 default)", async () => {
-  const { calls, restore } = installFetchMock([{ status: 200, body: { tracks: { items: [] } } }]);
+  const { calls, restore } = installFetchMock([
+    { status: 200, body: { tracks: { items: [], total: 0, next: null } } },
+  ]);
   const out = captureStdout();
   try {
     await freshProgram().parseAsync(["node", "spotify-cli", "search", "jazz", "--type", "track"]);
@@ -81,6 +83,192 @@ test("search default limit is 5 (Feb 2026 default)", async () => {
   assert.equal(url.searchParams.get("q"), "jazz");
   assert.equal(url.searchParams.get("type"), "track");
   assert.equal(url.searchParams.get("limit"), "5");
+});
+
+test("search projects tracks to flat {uri,name,artists,album,duration_ms} list", async () => {
+  const { restore } = installFetchMock([
+    {
+      status: 200,
+      body: {
+        tracks: {
+          total: 1,
+          next: null,
+          items: [
+            {
+              uri: "spotify:track:aaa",
+              name: "Blue in Green",
+              duration_ms: 337733,
+              explicit: false,
+              artists: [{ name: "Miles Davis" }, { name: "Bill Evans" }],
+              album: { name: "Kind of Blue", uri: "spotify:album:bbb" },
+            },
+          ],
+        },
+      },
+    },
+  ]);
+  const out = captureStdout();
+  try {
+    await freshProgram().parseAsync(["node", "spotify-cli", "search", "jazz", "--type", "track"]);
+  } finally {
+    restore();
+  }
+  const parsed = JSON.parse(out.restore());
+  assert.equal(parsed.total, 1);
+  assert.equal(parsed.items.length, 1);
+  assert.deepEqual(parsed.items[0], {
+    uri: "spotify:track:aaa",
+    name: "Blue in Green",
+    artists: ["Miles Davis", "Bill Evans"],
+    album: "Kind of Blue",
+    duration_ms: 337733,
+    explicit: false,
+  });
+  // Critical: no album.images, no external_urls, no href — projection only.
+  assert.equal(parsed.items[0].album.images, undefined);
+});
+
+test("search projects albums with artist names", async () => {
+  const { restore } = installFetchMock([
+    {
+      status: 200,
+      body: {
+        albums: {
+          total: 1,
+          next: null,
+          items: [
+            {
+              uri: "spotify:album:1",
+              name: "Kind of Blue",
+              release_date: "1959-08-17",
+              total_tracks: 5,
+              artists: [{ name: "Miles Davis" }],
+            },
+          ],
+        },
+      },
+    },
+  ]);
+  const out = captureStdout();
+  try {
+    await freshProgram().parseAsync(["node", "spotify-cli", "search", "x", "--type", "album"]);
+  } finally {
+    restore();
+  }
+  const parsed = JSON.parse(out.restore());
+  assert.deepEqual(parsed.items[0], {
+    uri: "spotify:album:1",
+    name: "Kind of Blue",
+    artists: ["Miles Davis"],
+    release_date: "1959-08-17",
+    total_tracks: 5,
+  });
+});
+
+test("search projects artists with genres/followers/popularity", async () => {
+  const { restore } = installFetchMock([
+    {
+      status: 200,
+      body: {
+        artists: {
+          total: 1,
+          next: null,
+          items: [
+            {
+              uri: "spotify:artist:1",
+              name: "Bill Evans",
+              genres: ["jazz", "cool jazz"],
+              followers: { total: 1234567 },
+              popularity: 65,
+            },
+          ],
+        },
+      },
+    },
+  ]);
+  const out = captureStdout();
+  try {
+    await freshProgram().parseAsync(["node", "spotify-cli", "search", "x", "--type", "artist"]);
+  } finally {
+    restore();
+  }
+  const parsed = JSON.parse(out.restore());
+  assert.deepEqual(parsed.items[0], {
+    uri: "spotify:artist:1",
+    name: "Bill Evans",
+    genres: ["jazz", "cool jazz"],
+    followers: 1234567,
+    popularity: 65,
+  });
+});
+
+test("search projects playlists with owner display name", async () => {
+  const { restore } = installFetchMock([
+    {
+      status: 200,
+      body: {
+        playlists: {
+          total: 1,
+          next: null,
+          items: [
+            {
+              uri: "spotify:playlist:1",
+              name: "Late Night Jazz",
+              description: "moody",
+              owner: { display_name: "alice" },
+            },
+          ],
+        },
+      },
+    },
+  ]);
+  const out = captureStdout();
+  try {
+    await freshProgram().parseAsync(["node", "spotify-cli", "search", "x", "--type", "playlist"]);
+  } finally {
+    restore();
+  }
+  const parsed = JSON.parse(out.restore());
+  assert.deepEqual(parsed.items[0], {
+    uri: "spotify:playlist:1",
+    name: "Late Night Jazz",
+    description: "moody",
+    owner: "alice",
+  });
+});
+
+test("search filters out null entries (Spotify sometimes returns nulls)", async () => {
+  const { restore } = installFetchMock([
+    {
+      status: 200,
+      body: {
+        tracks: {
+          total: 2,
+          next: null,
+          items: [
+            null,
+            {
+              uri: "spotify:track:aaa",
+              name: "Blue in Green",
+              duration_ms: 100,
+              explicit: false,
+              artists: [{ name: "Miles" }],
+              album: { name: "Kind of Blue", uri: "spotify:album:b" },
+            },
+          ],
+        },
+      },
+    },
+  ]);
+  const out = captureStdout();
+  try {
+    await freshProgram().parseAsync(["node", "spotify-cli", "search", "x", "--type", "track"]);
+  } finally {
+    restore();
+  }
+  const parsed = JSON.parse(out.restore());
+  assert.equal(parsed.items.length, 1);
+  assert.equal(parsed.items[0].name, "Blue in Green");
 });
 
 test("search clamps --limit above 10 down to 10 (Feb 2026 max)", async () => {
