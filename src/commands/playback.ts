@@ -32,9 +32,13 @@ export function registerPlaybackCommands(program: Command): void {
     .command("status")
     .description("Show the current playback state")
     .action(async () => {
-      const data = await spotifyRequest<unknown>("/me/player");
+      const data = await spotifyRequest<RawPlaybackState | undefined>("/me/player");
       // /me/player returns 204 (no content) when nothing is playing
-      printJson(data ?? { is_playing: false });
+      if (!data) {
+        printJson({ is_playing: false, device: null, item: null });
+        return;
+      }
+      printJson(projectPlaybackState(data));
     });
 
   playback
@@ -211,5 +215,91 @@ function parseIntInRange(min: number, max: number): (raw: string) => number {
       throw new InvalidArgumentError(`expected integer in [${min}, ${max}]`);
     }
     return n;
+  };
+}
+
+// ----- /me/player projection -----
+//
+// The raw state response embeds the full track + album + image + external_urls
+// trees. Project to a flat shape so the agent can read item.uri /
+// device.name / progress_ms directly.
+
+interface RawArtistRef { name: string; uri: string }
+interface RawPlaybackItem {
+  uri: string;
+  name: string;
+  type: string;
+  duration_ms: number;
+  is_playable?: boolean;
+  artists?: RawArtistRef[];
+  album?: { name: string; uri: string };
+  show?: { name: string; uri: string };
+}
+interface RawPlaybackState {
+  is_playing: boolean;
+  shuffle_state?: boolean;
+  repeat_state?: string;
+  progress_ms: number | null;
+  device?: {
+    id: string | null;
+    name: string;
+    type: string;
+    is_active: boolean;
+    volume_percent: number | null;
+    supports_volume?: boolean;
+  };
+  context?: { uri: string; type: string } | null;
+  item?: RawPlaybackItem | null;
+}
+
+interface ProjectedPlaybackState {
+  is_playing: boolean;
+  shuffle: boolean;
+  repeat: string;
+  progress_ms: number | null;
+  device: {
+    id: string | null;
+    name: string;
+    type: string;
+    is_active: boolean;
+    volume_percent: number | null;
+  } | null;
+  context: { uri: string; type: string } | null;
+  item: {
+    uri: string;
+    name: string;
+    type: string;
+    duration_ms: number;
+    artists: string[];
+    album: string | null;
+  } | null;
+}
+
+function projectPlaybackState(s: RawPlaybackState): ProjectedPlaybackState {
+  return {
+    is_playing: s.is_playing,
+    shuffle: s.shuffle_state ?? false,
+    repeat: s.repeat_state ?? "off",
+    progress_ms: s.progress_ms,
+    device: s.device
+      ? {
+          id: s.device.id,
+          name: s.device.name,
+          type: s.device.type,
+          is_active: s.device.is_active,
+          volume_percent: s.device.volume_percent,
+        }
+      : null,
+    context: s.context ? { uri: s.context.uri, type: s.context.type } : null,
+    item: s.item
+      ? {
+          uri: s.item.uri,
+          name: s.item.name,
+          type: s.item.type,
+          duration_ms: s.item.duration_ms,
+          artists: s.item.artists?.map((a) => a.name) ?? [],
+          album: s.item.album?.name ?? s.item.show?.name ?? null,
+        }
+      : null,
   };
 }

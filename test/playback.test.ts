@@ -111,7 +111,111 @@ test("playback status with 204 returns is_playing:false envelope", async () => {
     restore();
   }
   const parsed = JSON.parse(out.restore());
-  assert.equal(parsed.is_playing, false);
+  assert.deepEqual(parsed, { is_playing: false, device: null, item: null });
+});
+
+test("playback status projects active session to flat shape", async () => {
+  const { restore } = installFetchMock([
+    {
+      status: 200,
+      body: {
+        is_playing: true,
+        shuffle_state: true,
+        repeat_state: "context",
+        progress_ms: 12345,
+        timestamp: 1775526806969,
+        device: {
+          id: "dev1",
+          name: "Living Room",
+          type: "Speaker",
+          is_active: true,
+          volume_percent: 60,
+          supports_volume: true,
+        },
+        context: {
+          uri: "spotify:playlist:p1",
+          type: "playlist",
+          href: "https://api.spotify.com/v1/playlists/p1",
+          external_urls: { spotify: "https://open.spotify.com/playlist/p1" },
+        },
+        item: {
+          uri: "spotify:track:t1",
+          name: "Blue in Green",
+          type: "track",
+          duration_ms: 337733,
+          is_playable: true,
+          artists: [{ name: "Miles Davis", uri: "spotify:artist:a1" }],
+          album: {
+            name: "Kind of Blue",
+            uri: "spotify:album:al1",
+            images: [{ url: "https://...", width: 640, height: 640 }],
+          },
+        },
+      },
+    },
+  ]);
+  const out = captureStdout();
+  try {
+    await freshProgram().parseAsync(["node", "spotify-cli", "playback", "status"]);
+  } finally {
+    restore();
+  }
+  const parsed = JSON.parse(out.restore());
+  assert.deepEqual(parsed, {
+    is_playing: true,
+    shuffle: true,
+    repeat: "context",
+    progress_ms: 12345,
+    device: {
+      id: "dev1",
+      name: "Living Room",
+      type: "Speaker",
+      is_active: true,
+      volume_percent: 60,
+    },
+    context: { uri: "spotify:playlist:p1", type: "playlist" },
+    item: {
+      uri: "spotify:track:t1",
+      name: "Blue in Green",
+      type: "track",
+      duration_ms: 337733,
+      artists: ["Miles Davis"],
+      album: "Kind of Blue",
+    },
+  });
+});
+
+test("playback status projects podcast episodes to use show name as album", async () => {
+  const { restore } = installFetchMock([
+    {
+      status: 200,
+      body: {
+        is_playing: true,
+        shuffle_state: false,
+        repeat_state: "off",
+        progress_ms: 1000,
+        device: { id: "d", name: "Phone", type: "Smartphone", is_active: true, volume_percent: 50 },
+        context: null,
+        item: {
+          uri: "spotify:episode:e1",
+          name: "Episode 42",
+          type: "episode",
+          duration_ms: 3600000,
+          show: { name: "The Podcast", uri: "spotify:show:s1" },
+        },
+      },
+    },
+  ]);
+  const out = captureStdout();
+  try {
+    await freshProgram().parseAsync(["node", "spotify-cli", "playback", "status"]);
+  } finally {
+    restore();
+  }
+  const parsed = JSON.parse(out.restore());
+  assert.equal(parsed.item.album, "The Podcast");
+  assert.equal(parsed.item.type, "episode");
+  assert.deepEqual(parsed.item.artists, []);
 });
 
 test("playback transfer PUTs /me/player with device_ids and play flag", async () => {
