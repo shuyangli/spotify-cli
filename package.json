@@ -1,0 +1,30 @@
+{
+  "name": "spotify-cli",
+  "version": "0.1.0",
+  "description": "CLI for building Spotify playlists and controlling Spotify Connect playback, designed for Hermes agents",
+  "type": "module",
+  "bin": {
+    "spotify-cli": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "node --test --import tsx test/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  },
+  "license": "MIT"
+}
