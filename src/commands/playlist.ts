@@ -9,7 +9,10 @@ interface PlaylistRef {
   owner: { id: string; display_name: string | null };
   public: boolean | null;
   collaborative: boolean;
-  tracks: { total: number };
+  // Per the Feb 2026 API change, the playlist summary's track-count field is
+  // `items: { total }`, not `tracks: { total }`. Old code that hits the
+  // legacy field will get `undefined.total` and crash.
+  items: { total: number };
 }
 
 interface PaginatedPlaylists {
@@ -109,11 +112,19 @@ export function registerPlaylistCommands(program: Command): void {
     .option("--limit <n>", "max items (1-100)", parseIntInRange(1, 100), 50)
     .option("--offset <n>", "pagination offset", parseIntInRange(0, 100_000), 0)
     .action(async (playlistId: string, opts: { limit: number; offset: number }) => {
-      // Note: uses /playlists/{id}/items per Feb 2026 surface (not deprecated /tracks).
+      // Per Feb 2026: payload is `item: {...}` (not the old `track: {...}`).
+      // The endpoint also uses /items, not the deprecated /tracks.
+      // There's still a sibling boolean `track: true|false` indicating the
+      // item type — don't conflate it with the payload object.
       const data = await spotifyRequest<{
         items: Array<{
           added_at: string;
-          track: { uri: string; name: string; artists: Array<{ name: string }> } | null;
+          item: {
+            uri: string;
+            name: string;
+            type: string;
+            artists?: Array<{ name: string }>;
+          } | null;
         }>;
         total: number;
         next: string | null;
@@ -125,9 +136,10 @@ export function registerPlaylistCommands(program: Command): void {
         next: data.next,
         items: data.items.map((it) => ({
           added_at: it.added_at,
-          uri: it.track?.uri ?? null,
-          name: it.track?.name ?? null,
-          artists: it.track?.artists.map((a) => a.name) ?? [],
+          uri: it.item?.uri ?? null,
+          name: it.item?.name ?? null,
+          type: it.item?.type ?? null,
+          artists: it.item?.artists?.map((a) => a.name) ?? [],
         })),
       });
     });
@@ -221,7 +233,7 @@ function summarizePlaylist(p: PlaylistRef): {
     owner_name: p.owner.display_name,
     public: p.public,
     collaborative: p.collaborative,
-    track_count: p.tracks.total,
+    track_count: p.items.total,
   };
 }
 

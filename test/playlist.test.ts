@@ -103,7 +103,7 @@ test("playlist list calls /me/playlists with limit + offset and summarizes items
             owner: { id: "alice", display_name: "Alice" },
             public: true,
             collaborative: false,
-            tracks: { total: 12 },
+            items: { total: 12 },
           },
         ],
         total: 1,
@@ -138,7 +138,7 @@ test("playlist create POSTs to /users/{id}/playlists with name + flags", async (
         owner: { id: "alice", display_name: "Alice" },
         public: false,
         collaborative: false,
-        tracks: { total: 0 },
+        items: { total: 0 },
       },
     },
   ]);
@@ -246,9 +246,10 @@ test("playlist items uses /items (not deprecated /tracks) and projects fields", 
         items: [
           {
             added_at: "2026-04-01T00:00:00Z",
-            track: {
+            item: {
               uri: "spotify:track:aaa",
               name: "Blue in Green",
+              type: "track",
               artists: [{ name: "Miles Davis" }],
             },
           },

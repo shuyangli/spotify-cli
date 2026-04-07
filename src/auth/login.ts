@@ -23,6 +23,13 @@ const SCOPES = [
 interface LoginOptions {
   clientId: string;
   openBrowser?: boolean;
+  /**
+   * Full registered redirect URI, e.g. "http://127.0.0.1:8989/callback".
+   * If omitted, the loopback server binds to an ephemeral port and the
+   * caller's Spotify app must allow that. Most apps register a fixed port,
+   * so this should usually be set.
+   */
+  redirectUri?: string;
 }
 
 export async function login(opts: LoginOptions): Promise<StoredToken> {
@@ -30,7 +37,13 @@ export async function login(opts: LoginOptions): Promise<StoredToken> {
   const challenge = await generateCodeChallenge(verifier);
   const state = generateState();
 
-  const { code, redirectUri } = await runLoopback(opts.clientId, challenge, state, opts.openBrowser ?? true);
+  const { code, redirectUri } = await runLoopback(
+    opts.clientId,
+    challenge,
+    state,
+    opts.openBrowser ?? true,
+    opts.redirectUri,
+  );
   const token = await exchangeCode({ code, verifier, clientId: opts.clientId, redirectUri });
   await writeToken(token);
   return token;
@@ -46,11 +59,28 @@ function runLoopback(
   challenge: string,
   state: string,
   openBrowser: boolean,
+  fixedRedirectUri: string | undefined,
 ): Promise<LoopbackResult> {
+  // Parse the requested redirect URI (if any) so we know which port and path
+  // to bind. Default: ephemeral port + /callback path.
+  let bindHost = "127.0.0.1";
+  let bindPort = 0;
+  let callbackPath = "/callback";
+  if (fixedRedirectUri) {
+    const u = new URL(fixedRedirectUri);
+    if (u.hostname !== "127.0.0.1" && u.hostname !== "localhost") {
+      throw new Error(
+        `redirect URI host must be 127.0.0.1 or localhost (got ${u.hostname})`,
+      );
+    }
+    bindHost = u.hostname;
+    bindPort = Number.parseInt(u.port || "80", 10);
+    callbackPath = u.pathname || "/callback";
+  }
+
   return new Promise((resolve, reject) => {
     const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-      // Only handle the callback path; ignore favicon etc.
-      if (!req.url || !req.url.startsWith("/callback")) {
+      if (!req.url || !req.url.startsWith(callbackPath)) {
         res.statusCode = 404;
         res.end("not found");
         return;
@@ -87,19 +117,21 @@ function runLoopback(
       server.close();
       const addr = server.address();
       const port = typeof addr === "object" && addr ? addr.port : 0;
-      resolve({ code, redirectUri: `http://127.0.0.1:${port}/callback` });
+      const finalRedirectUri =
+        fixedRedirectUri ?? `http://${bindHost}:${port}${callbackPath}`;
+      resolve({ code, redirectUri: finalRedirectUri });
     });
 
     server.on("error", reject);
-    // Bind to ephemeral port on loopback only.
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(bindPort, bindHost, () => {
       const addr = server.address();
       if (typeof addr !== "object" || !addr) {
         server.close();
         reject(new Error("failed to bind loopback server"));
         return;
       }
-      const redirectUri = `http://127.0.0.1:${addr.port}/callback`;
+      const redirectUri =
+        fixedRedirectUri ?? `http://${bindHost}:${addr.port}${callbackPath}`;
       const authUrl = new URL(AUTH_URL);
       authUrl.searchParams.set("client_id", clientId);
       authUrl.searchParams.set("response_type", "code");

@@ -15,15 +15,20 @@ export function registerAuthCommands(program: Command): void {
       "--client-id <id>",
       "Spotify app client ID (or set SPOTIFY_CLIENT_ID env var)",
     )
+    .option(
+      "--redirect-uri <uri>",
+      "Registered redirect URI on the Spotify app, e.g. http://127.0.0.1:8989/callback (or set SPOTIFY_REDIRECT_URI). The CLI binds the host:port from this URI for the OAuth callback.",
+    )
     .option("--no-open", "Do not attempt to open the browser automatically")
-    .action(async (opts: { clientId?: string; open: boolean }) => {
+    .action(async (opts: { clientId?: string; redirectUri?: string; open: boolean }) => {
       const clientId = opts.clientId ?? process.env["SPOTIFY_CLIENT_ID"];
       if (!clientId) {
         throw new Error(
           "missing client id — pass --client-id or set SPOTIFY_CLIENT_ID. Register an app at https://developer.spotify.com/dashboard",
         );
       }
-      const token = await login({ clientId, openBrowser: opts.open });
+      const redirectUri = opts.redirectUri ?? process.env["SPOTIFY_REDIRECT_URI"];
+      const token = await login({ clientId, openBrowser: opts.open, redirectUri });
       printJson({
         ok: true,
         scopes: token.scope.split(" ").filter(Boolean),
