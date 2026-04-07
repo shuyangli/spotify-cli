@@ -1,0 +1,10 @@
+# Non-secret defaults for the spotify skill. Override per-user as needed.
+
+# Minimum interval (ms) between any two outbound Spotify API calls within a
+# single spotify-cli process. Bumped above 250 if you find yourself running
+# very long playlist builds and seeing transient 429s.
+min_interval_ms: 250
+
+# Locale used for market-aware endpoints (search, browse). Spotify uses an
+# ISO 3166-1 alpha-2 country code. Leave blank for "from token".
+market: ""
