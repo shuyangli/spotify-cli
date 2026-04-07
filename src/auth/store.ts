@@ -11,16 +11,18 @@ export interface StoredToken {
   client_id: string;
 }
 
-const CONFIG_DIR = join(homedir(), ".config", "spotify-cli");
-const TOKEN_PATH = join(CONFIG_DIR, "token.json");
+// Computed lazily so tests can set HOME before any function call.
+function configDir(): string {
+  return join(homedir(), ".config", "spotify-cli");
+}
 
 export function tokenPath(): string {
-  return TOKEN_PATH;
+  return join(configDir(), "token.json");
 }
 
 export async function readToken(): Promise<StoredToken | null> {
   try {
-    const raw = await readFile(TOKEN_PATH, "utf8");
+    const raw = await readFile(tokenPath(), "utf8");
     return JSON.parse(raw) as StoredToken;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
@@ -29,15 +31,16 @@ export async function readToken(): Promise<StoredToken | null> {
 }
 
 export async function writeToken(token: StoredToken): Promise<void> {
-  await mkdir(dirname(TOKEN_PATH), { recursive: true, mode: 0o700 });
-  await writeFile(TOKEN_PATH, JSON.stringify(token, null, 2), { mode: 0o600 });
+  const path = tokenPath();
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  await writeFile(path, JSON.stringify(token, null, 2), { mode: 0o600 });
   // writeFile mode is only honored if file is created; ensure 0600 either way
-  await chmod(TOKEN_PATH, 0o600);
+  await chmod(path, 0o600);
 }
 
 export async function deleteToken(): Promise<boolean> {
   try {
-    await unlink(TOKEN_PATH);
+    await unlink(tokenPath());
     return true;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
@@ -47,7 +50,7 @@ export async function deleteToken(): Promise<boolean> {
 
 export async function tokenFileMode(): Promise<number | null> {
   try {
-    const s = await stat(TOKEN_PATH);
+    const s = await stat(tokenPath());
     return s.mode & 0o777;
   } catch {
     return null;

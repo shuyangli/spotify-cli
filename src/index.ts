@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { registerAuthCommands } from "./commands/auth.js";
+import { registerPlaylistCommands } from "./commands/playlist.js";
 import { printError } from "./util/output.js";
 import { setDebugEnabled } from "./util/debug.js";
 
@@ -17,6 +18,7 @@ async function main(): Promise<void> {
     });
 
   registerAuthCommands(program);
+  registerPlaylistCommands(program);
 
   // commander throws on action errors; route them through our error envelope.
   program.exitOverride();

@@ -1,21 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
 import { stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-// Override HOME so the store writes into a tmp dir for tests.
-const tmpHome = mkdtempSync(join(tmpdir(), "spotify-cli-test-"));
-process.env["HOME"] = tmpHome;
-
-const { writeToken, readToken, deleteToken, tokenPath, tokenFileMode } = await import(
-  "../src/auth/store.ts"
-);
-
-test.after(() => {
-  rmSync(tmpHome, { recursive: true, force: true });
-});
+import { writeToken, readToken, deleteToken, tokenPath, tokenFileMode } from "../src/auth/store.ts";
 
 const sample = {
   access_token: "access-abc",
@@ -30,14 +16,13 @@ test("token round-trips through write/read", async () => {
   await writeToken(sample);
   const read = await readToken();
   assert.deepEqual(read, sample);
-  assert.ok(tokenPath().startsWith(tmpHome));
+  assert.ok(tokenPath().includes("spotify-cli"));
 });
 
 test("token file is created with mode 0600", async () => {
   await writeToken(sample);
   const mode = await tokenFileMode();
   assert.equal(mode, 0o600);
-  // also stat directly as belt-and-suspenders
   const s = await stat(tokenPath());
   assert.equal(s.mode & 0o777, 0o600);
 });

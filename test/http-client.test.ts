@@ -1,36 +1,9 @@
-import { test, mock } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-// Sandbox HOME so the auth/refresh module reads from a tmp dir.
-const tmpHome = mkdtempSync(join(tmpdir(), "spotify-cli-http-test-"));
-process.env["HOME"] = tmpHome;
-// Disable pacing in tests so they run fast.
-process.env["SPOTIFY_CLI_MIN_INTERVAL_MS"] = "0";
-
-const { writeToken } = await import("../src/auth/store.ts");
-const { _resetPacerForTests } = await import("../src/http/pacer.ts");
-const { spotifyRequest } = await import("../src/http/client.ts");
-const { SpotifyApiError } = await import("../src/http/errors.ts");
-
-await writeToken({
-  access_token: "initial-access",
-  refresh_token: "refresh-xyz",
-  expires_at: Date.now() + 3600_000,
-  scope: "playlist-read-private",
-  token_type: "Bearer",
-  client_id: "test-client",
-});
-
-test.after(() => {
-  rmSync(tmpHome, { recursive: true, force: true });
-});
-
-test.beforeEach(() => {
-  _resetPacerForTests();
-});
+import { writeToken } from "../src/auth/store.ts";
+import { _resetPacerForTests } from "../src/http/pacer.ts";
+import { spotifyRequest } from "../src/http/client.ts";
+import { SpotifyApiError } from "../src/http/errors.ts";
 
 interface MockResponse {
   status: number;
@@ -61,6 +34,22 @@ function installFetchMock(responses: MockResponse[]): {
   }) as typeof fetch;
   return { calls, restore: () => { globalThis.fetch = original; } };
 }
+
+async function seedToken(): Promise<void> {
+  await writeToken({
+    access_token: "initial-access",
+    refresh_token: "refresh-xyz",
+    expires_at: Date.now() + 3600_000,
+    scope: "playlist-read-private",
+    token_type: "Bearer",
+    client_id: "test-client",
+  });
+}
+
+test.beforeEach(async () => {
+  _resetPacerForTests();
+  await seedToken();
+});
 
 test("happy path: GET returns parsed JSON", async () => {
   const { calls, restore } = installFetchMock([{ status: 200, body: { id: "abc" } }]);
@@ -122,7 +111,6 @@ test("429 honors Retry-After and retries", async () => {
     const elapsed = Date.now() - t0;
     assert.deepEqual(result, { ok: true });
     assert.equal(calls.length, 2);
-    // retry-after: 0 means we should retry quickly (allow small jitter)
     assert.ok(elapsed < 500, `expected fast retry on Retry-After: 0, got ${elapsed}ms`);
   } finally {
     restore();
@@ -179,10 +167,8 @@ test("4xx (other than 401/429) throws immediately without retry", async () => {
 });
 
 test("401 triggers a refresh and retries the request once", async () => {
-  // mock the token endpoint (refresh) + the API call
   const { calls, restore } = installFetchMock([
     { status: 401, body: { error: { message: "expired" } } },
-    // refresh response (called by forceRefresh)
     {
       status: 200,
       body: {
@@ -200,7 +186,6 @@ test("401 triggers a refresh and retries the request once", async () => {
     assert.deepEqual(result, { ok: true });
     assert.equal(calls.length, 3);
     assert.equal(calls[1]!.url, "https://accounts.spotify.com/api/token");
-    // Final request must use the refreshed token
     assert.equal(
       (calls[2]!.init.headers as Record<string, string>)["authorization"],
       "Bearer refreshed-access",
@@ -236,5 +221,3 @@ test("repeated 401 after refresh does not loop infinitely", async () => {
     restore();
   }
 });
-
-void mock; // silence unused-import lint if any
