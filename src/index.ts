@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { registerAuthCommands } from "./commands/auth.js";
 import { printError } from "./util/output.js";
+import { setDebugEnabled } from "./util/debug.js";
 
 async function main(): Promise<void> {
   const program = new Command();
@@ -9,7 +10,11 @@ async function main(): Promise<void> {
     .name("spotify-cli")
     .description("Build Spotify playlists and control Spotify Connect playback")
     .version("0.1.0")
-    .option("--debug", "Enable verbose stderr logging");
+    .option("--debug", "Enable verbose stderr logging")
+    .hook("preAction", (thisCommand) => {
+      const opts = thisCommand.optsWithGlobals();
+      if (opts["debug"]) setDebugEnabled(true);
+    });
 
   registerAuthCommands(program);
 
