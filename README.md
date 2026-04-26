@@ -35,8 +35,28 @@ export SPOTIFY_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxx
 spotify-cli auth login
 ```
 
-The token is cached at `~/.config/spotify-cli/token.json` (mode `0600`) and
-auto-refreshed before expiry.
+The token is cached at `~/.config/spotify-cli/profiles/default/token.json`
+(mode `0600`) and auto-refreshed before expiry. Tokens from older versions
+that lived at `~/.config/spotify-cli/token.json` continue to work without a
+manual migration.
+
+## Profiles
+
+Use `--profile <name>` (or `SPOTIFY_CLI_PROFILE`) to keep multiple Spotify
+accounts side-by-side. Each profile gets its own token file under
+`~/.config/spotify-cli/profiles/<name>/token.json`.
+
+```sh
+spotify-cli --profile shuyang auth login
+spotify-cli --profile partner auth login
+
+spotify-cli --profile partner playback pause
+spotify-cli --profile shuyang playlist list
+
+spotify-cli auth profiles   # list profiles that have a stored token
+```
+
+Without `--profile`, the CLI uses a profile named `default`.
 
 ## Examples
 

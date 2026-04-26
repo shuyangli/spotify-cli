@@ -54,6 +54,7 @@ you, the agent, because cross-process pacing is not possible.
 | Authenticate | `spotify-cli auth login --client-id $SPOTIFY_CLIENT_ID` |
 | Check auth | `spotify-cli auth status` |
 | Sign out | `spotify-cli auth logout` |
+| List profiles | `spotify-cli auth profiles` |
 | Search the catalog | `spotify-cli search "<query>" --type track\|album\|artist\|playlist [--limit N]` |
 | List user playlists | `spotify-cli playlist list [--limit N] [--offset N]` |
 | Create a playlist | `spotify-cli playlist create --name "<name>" [--description "<text>"] [--public]` |
@@ -110,8 +111,14 @@ call must complete before the next one is started.**
   `{"is_playing": false}` with no device, run `devices list` and
   `playback transfer <id> --play` first.
 - **Cover images must be JPEG and under 256 KB.**
-- **Token storage:** OAuth tokens live at `~/.config/spotify-cli/token.json`
-  with mode 0600. Never read or echo them.
+- **Token storage:** OAuth tokens live at
+  `~/.config/spotify-cli/profiles/<profile>/token.json` with mode 0600 (or
+  the legacy `~/.config/spotify-cli/token.json` for installs from before
+  multi-profile support). Never read or echo them.
+- **Profiles:** pass `--profile <name>` (or set `SPOTIFY_CLI_PROFILE`) to
+  switch between multiple Spotify accounts. Without it, the CLI uses the
+  `default` profile. The flag goes BEFORE the subcommand:
+  `spotify-cli --profile partner playback pause`.
 
 ## Verification
 

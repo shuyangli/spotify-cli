@@ -1,6 +1,14 @@
 import { Command } from "commander";
 import { login } from "../auth/login.js";
-import { readToken, deleteToken, tokenPath, tokenFileMode } from "../auth/store.js";
+import {
+  readToken,
+  deleteToken,
+  tokenPath,
+  activeTokenPath,
+  tokenFileMode,
+  getProfile,
+  listProfiles,
+} from "../auth/store.js";
 import { printJson } from "../util/output.js";
 
 const SPOTIFY_ME = "https://api.spotify.com/v1/me";
@@ -31,6 +39,7 @@ export function registerAuthCommands(program: Command): void {
       const token = await login({ clientId, openBrowser: opts.open, redirectUri });
       printJson({
         ok: true,
+        profile: getProfile(),
         scopes: token.scope.split(" ").filter(Boolean),
         expires_at: new Date(token.expires_at).toISOString(),
         token_path: tokenPath(),
@@ -42,39 +51,50 @@ export function registerAuthCommands(program: Command): void {
     .description("Show whether spotify-cli is authenticated")
     .action(async () => {
       const token = await readToken();
+      const profile = getProfile();
       if (!token) {
-        printJson({ authenticated: false });
+        printJson({ authenticated: false, profile });
         return;
       }
       // Best-effort profile fetch using the cached token (no refresh here to keep status fast).
-      let profile: { id: string; display_name: string | null } | null = null;
+      let userProfile: { id: string; display_name: string | null } | null = null;
       try {
         const res = await fetch(SPOTIFY_ME, {
           headers: { authorization: `Bearer ${token.access_token}` },
         });
         if (res.ok) {
           const data = (await res.json()) as { id: string; display_name: string | null };
-          profile = { id: data.id, display_name: data.display_name };
+          userProfile = { id: data.id, display_name: data.display_name };
         }
       } catch {
         // ignore — status should not throw on transient network failures
       }
+      const path = (await activeTokenPath()) ?? tokenPath();
       printJson({
         authenticated: true,
+        profile,
         client_id: token.client_id,
         scopes: token.scope.split(" ").filter(Boolean),
         expires_at: new Date(token.expires_at).toISOString(),
-        token_path: tokenPath(),
+        token_path: path,
         token_file_mode: (await tokenFileMode())?.toString(8) ?? null,
-        profile,
+        user: userProfile,
       });
     });
 
   auth
     .command("logout")
-    .description("Delete the cached token file")
+    .description("Delete the cached token file for the current profile")
     .action(async () => {
       const removed = await deleteToken();
-      printJson({ ok: true, removed });
+      printJson({ ok: true, profile: getProfile(), removed });
+    });
+
+  auth
+    .command("profiles")
+    .description("List credential profiles that have a stored token")
+    .action(async () => {
+      const profiles = await listProfiles();
+      printJson({ active: getProfile(), profiles });
     });
 }
