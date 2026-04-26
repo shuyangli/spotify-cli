@@ -6,6 +6,7 @@ import { registerPlaybackCommands } from "./commands/playback.js";
 import { registerSearchCommand } from "./commands/search.js";
 import { printError } from "./util/output.js";
 import { setDebugEnabled } from "./util/debug.js";
+import { setProfile } from "./auth/store.js";
 
 async function main(): Promise<void> {
   const program = new Command();
@@ -14,9 +15,15 @@ async function main(): Promise<void> {
     .description("Build Spotify playlists and control Spotify Connect playback")
     .version("0.0.1")
     .option("--debug", "Enable verbose stderr logging")
+    .option(
+      "--profile <name>",
+      "Named credential profile (also via SPOTIFY_CLI_PROFILE). Tokens live at ~/.config/spotify-cli/profiles/<name>/token.json. Defaults to 'default'.",
+    )
     .hook("preAction", (thisCommand) => {
       const opts = thisCommand.optsWithGlobals();
       if (opts["debug"]) setDebugEnabled(true);
+      const profile = (opts["profile"] as string | undefined) ?? process.env["SPOTIFY_CLI_PROFILE"];
+      if (profile) setProfile(profile);
     });
 
   registerAuthCommands(program);
