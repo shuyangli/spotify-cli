@@ -226,7 +226,7 @@ test("playlist add rejects bare IDs without making any API call", async () => {
   assert.equal(calls.length, 0);
 });
 
-test("playlist remove sends DELETE with tracks[].uri envelope", async () => {
+test("playlist remove sends DELETE with items[].uri envelope (not legacy tracks[])", async () => {
   const { calls, restore } = installFetchMock([{ status: 200, body: { snapshot_id: "snap2" } }]);
   const out = captureStdout();
   try {
@@ -240,7 +240,8 @@ test("playlist remove sends DELETE with tracks[].uri envelope", async () => {
   assert.equal(calls[0]!.init.method, "DELETE");
   assert.equal(new URL(calls[0]!.url).pathname, "/v1/playlists/p1/items");
   const body = JSON.parse(calls[0]!.init.body as string);
-  assert.deepEqual(body, { tracks: [{ uri: "spotify:track:aaa" }] });
+  assert.deepEqual(body, { items: [{ uri: "spotify:track:aaa" }] });
+  assert.equal("tracks" in body, false);
 });
 
 test("playlist reorder PUTs range_start/insert_before/range_length", async () => {

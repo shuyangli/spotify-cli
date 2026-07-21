@@ -173,7 +173,7 @@ export function registerPlaylistCommands(program: Command): void {
         `/playlists/${encodeURIComponent(playlistId)}/items`,
         {
           method: "DELETE",
-          body: { tracks: uris.map((uri) => ({ uri })) },
+          body: { items: uris.map((uri) => ({ uri })) },
         },
       );
       printJson({ ok: true, removed: uris.length, snapshot_id: result.snapshot_id });
